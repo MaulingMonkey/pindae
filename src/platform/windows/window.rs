@@ -1,7 +1,6 @@
 use winapi::shared::minwindef::*;
-use winapi::shared::ntdef::*;
 use winapi::shared::windef::*;
-use winapi::um::errhandlingapi::GetLastError;
+use winapi::um::errhandlingapi::{GetLastError, SetLastError};
 use winapi::um::winuser::*;
 
 use std::ptr::null_mut;
@@ -17,15 +16,6 @@ fn to_wstring(value: &str) -> Vec<u16> {
         .collect()
 }
 
-pub unsafe fn pwstr_to_string(ptr: PWSTR) -> String {
-    use std::slice::from_raw_parts;
-    let len = (0_usize..)
-        .find(|&n| *ptr.add(n) == 0)
-        .expect("Couldn't find null terminator");
-    let array: &[u16] = from_raw_parts(ptr, len);
-    String::from_utf16_lossy(array)
-}
-
 pub unsafe extern "system" fn window_proc(
     hwnd: HWND,
     msg: UINT,
@@ -35,38 +25,43 @@ pub unsafe extern "system" fn window_proc(
     if msg == WM_CREATE {
         let create_struct = lparam as * mut CREATESTRUCTW;
         let window_state_ptr = create_struct.as_ref().unwrap().lpCreateParams as * mut Window;
-        let window_state : &mut Window = window_state_ptr.as_mut().unwrap();
 
-        SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_state_ptr as isize );
+        println!("YE {0}", (*window_state_ptr).description.name);
+
+        SetLastError(0);
+        if SetWindowLongPtrW(hwnd, GWLP_USERDATA, window_state_ptr as isize ) == 0 {
+            println!("YIKES: {0}", GetLastError());
+        }
     }
 
     let window_state_ptr = GetWindowLongPtrW(hwnd, GWLP_USERDATA) as * mut Window;
     let window_state_option = window_state_ptr.as_mut();
-
-
-    if window_state_option.is_some() {
-        let window_state = window_state_option.unwrap();
-        match msg {
-            WM_CREATE => {
-                window_state.OnEvent(Events::OnUICreate);
-            }
-            WM_CLOSE => {
-                window_state.OnEvent(Events::OnUIClose);
-                //DestroyWindow(hwnd);
-            }
-            WM_DESTROY => {
-                window_state.OnEvent(Events::OnUIDestroy);
-                //PostQuitMessage(0);
-            }
-            WM_MOUSEMOVE => {
-
-            }
-
-            _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
-        }
+    if window_state_option.is_none() {
+        return DefWindowProcW(hwnd, msg, wparam, lparam);
     }
-    else {
-        return DefWindowProcW(hwnd, msg, wparam, lparam)
+
+    let window_state = window_state_option.unwrap();
+    match msg {
+        WM_CREATE => {
+            println!("Create: {0}", window_state.description.name);
+            window_state.on_event(Events::OnUICreate);
+        }
+        WM_CLOSE => {
+            println!("Close: {0}", window_state.description.name);
+            //window_state.on_event(Events::OnUIClose);
+            DestroyWindow(hwnd);
+        }
+        WM_DESTROY => {
+            println!("Destroy: {0}", window_state.description.name);
+            //window_state.on_event(Events::OnUIDestroy);
+            PostQuitMessage(0);
+        }
+        WM_MOUSEMOVE => {
+            println!("MouseMove: {0}", window_state.description.name);
+            //window_state.on_event(Events::OnMouseMove);
+        }
+
+        _ => return DefWindowProcW(hwnd, msg, wparam, lparam),
     }
     0
 }
@@ -106,7 +101,6 @@ impl Window {
 
     unsafe fn register_window(&self, hinstance: &HINSTANCE) -> bool {
         let name = to_wstring(&self.description.name);
-        let title = to_wstring(&self.description.name);
 
         let wnd_class = WNDCLASSEXW {
             cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
@@ -133,17 +127,17 @@ impl Window {
 
     unsafe fn create_window(&mut self, hinstance: &HINSTANCE) -> Result<HWND, u32> {
         let name = to_wstring(&self.description.name);
-        let title = to_wstring(&self.description.name);
+        let title = to_wstring(&self.description.title);
 
         let hwnd = CreateWindowExW(
             0,
             name.as_ptr(),
             title.as_ptr(),
             WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-            CW_USEDEFAULT,
-            CW_USEDEFAULT,
-            630,
-            470,
+            self.description.pos_x,
+            self.description.pos_y,
+            self.description.width,
+            self.description.height,
             null_mut(),
             null_mut(),
             *hinstance,
@@ -160,7 +154,8 @@ impl Window {
         Ok(hwnd)
     }
 
-    fn OnEvent(&mut self, event: Events) {
+    fn on_event(&mut self, event: Events) {
+        println!("on_event: {0} ",  self.description.name);
         self.events.push(event);
     }
 }

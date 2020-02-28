@@ -6,6 +6,7 @@ use std::ptr::null_mut;
 
 use crate::platform::windows::window::Window;
 use crate::platform::{InstanceDesc, WindowDesc, Events};
+use winapi::um::errhandlingapi::GetLastError;
 
 pub struct Instance {
     hinstance: HINSTANCE,
@@ -33,15 +34,24 @@ impl Instance {
         }
     }
 
-    pub fn poll_events(&mut self) -> Vec<Events> {
+    pub fn poll_events(&mut self) -> impl Iterator<Item = Events> {
         unsafe {
             let mut msg: MSG = std::mem::zeroed();
-            while PeekMessageA(&mut msg, self.window.hwnd, 0, 0, PM_REMOVE) > 0 {
+            while PeekMessageW(&mut msg, self.window.hwnd, 0, 0, PM_REMOVE) > 0 {
                 TranslateMessage(&msg);
-                DispatchMessageA(&msg);
+                DispatchMessageW(&msg);
+
+                if msg.message == WM_QUIT {
+                    println!("Quit");
+
+                }
             }
+
+
+
+            std::mem::replace(&mut self.window.events, Vec::new()).into_iter()
         }
-        self.window.events.split_off(0)
+
     }
 
 }

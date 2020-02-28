@@ -16,17 +16,27 @@ impl InstanceDesc {
 
 pub struct WindowDesc {
     name: String,
+    title: String,
+    width: i32,
+    height: i32,
+    pos_x: i32,
+    pos_y: i32,
 }
 
 impl WindowDesc {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: String, title: String, width: i32, height: i32, pos_x: i32, pos_y: i32) -> Self {
         WindowDesc {
             name,
+            title,
+            width,
+            height,
+            pos_x,
+            pos_y,
         }
     }
 }
 
-pub enum Keycode {
+pub enum Keycodes {
     A,
     B,
     C,
@@ -89,11 +99,12 @@ pub enum Events {
     OnMouseUp {
         mouse_button: MouseButton
     },
+    OnMouseMove,
 
     OnKeyUp {
-        key: Keycode,
+        key: Keycodes,
     },
     OnKeyDown {
-        key: Keycode,
+        key: Keycodes,
     },
 }
