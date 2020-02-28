@@ -11,7 +11,7 @@ use winapi::um::errhandlingapi::GetLastError;
 pub struct Instance {
     hinstance: HINSTANCE,
     description: InstanceDesc,
-    window: Window,
+    window: Box<Window>,
 }
 
 impl Instance {

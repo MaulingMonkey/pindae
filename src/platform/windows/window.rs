@@ -73,14 +73,14 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(description: WindowDesc, hinstance: &HINSTANCE) -> Option<Self> {
+    pub fn new(description: WindowDesc, hinstance: &HINSTANCE) -> Option<Box<Self>> {
         let hwnd = null_mut();
 
-        let mut window = Window {
+        let mut window = Box::new(Window {
             description,
             hwnd,
             events: Vec::new(),
-        };
+        });
 
         unsafe {
             if window.register_window(&hinstance) == false {
